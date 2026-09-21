@@ -117,7 +117,7 @@ if st.button("Process Attendance from Images"):
 
             matched_hosts = []
             for p in Prtc:
-                matched_h = next((h for h in host if part[s for s in range(3)::].upper().startswith(h.upper()), None)
+                matched_h = next((h for h in host if part[s::]for s in range(3).upper().startswith(h.upper()), None)
                 if matched_h:
                     ap = matched_h
                     if matched_h != "BOULES Ramzy":
@@ -143,7 +143,7 @@ if st.button("Process Attendance from Images"):
             start_write_row = nextrow
 
             for part in Prtc:
-                is_host = any(part[s for s in range(3)::].upper().startswith(h.upper()) for h in host)
+                is_host = any(part[s::]for s in range(3).upper().startswith(h.upper()) for h in host)
                 
                 found = False
                 for ext in range(len(part) - 4):
