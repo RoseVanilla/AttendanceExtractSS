@@ -143,7 +143,7 @@ if st.button("Process Attendance from Images"):
             start_write_row = nextrow
 
             for part in Prtc:
-                is_host = any(part.upper().startswith(h.upper()) for h in host)
+                is_host = any(part.upper().startswith(h.upper()) or part[3::].upper().startswith(h.upper()) for h in host)
                 
                 found = False
                 for ext in range(len(part) - 4):
@@ -160,7 +160,7 @@ if st.button("Process Attendance from Images"):
                         present += 1
                         break
 
-                vsid = ["AIS", "AIS)", "WITH MR BOULES", "IN CLASS)", "WITH MR BOULES)", "IN CLASS", "AIS STUDENT)", "AIS STUDENT"]
+                vsid = ["AIS", "AIS)", "WITH MR BOULES", "WITH MR BOULES IN CLASS)", "WITH MR BOULES)", "IN CLASS", "AIS STUDENT)", "AIS STUDENT"]
                 matched_sid = next((sid for sid in vsid if part.upper().startswith(sid) or part.upper().endswith(sid)), None)
 
                 if matched_sid:
@@ -172,7 +172,7 @@ if st.button("Process Attendance from Images"):
                         preatt.append(formatted_name)
                         ais_updates.append([formatted_name])
                         nextrow += 1
-                elif part.upper().endswith("NEWCOMER"):
+                elif part.upper().endswith("NEWCOMER" or "NEW COMER"):
                     newcomers += 1
                     if part not in preatt:
                         counta += 1
