@@ -327,7 +327,7 @@ def process_zoom_ocr_attendance(uploaded_files):
 st.set_page_config(page_title="Zoom Attendance OCR", page_icon="📋")
 st.title("Zoom Attendance OCR Processor")
 
-col_input = st.text_input("Target Column Letter (e.g., B, C, D, AA):", value="B").strip().upper()
+col_input = st.text_input("Target Column Letter (e.g., B, C, D, AA):", value="").strip().upper()
 
 uploaded_images = st.file_uploader(
     "Upload Zoom Screenshot(s)", 
