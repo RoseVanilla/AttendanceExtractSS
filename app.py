@@ -218,6 +218,9 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
     new_students_count = 0
     ais_count = 0
     newcomers_count = 0
+    regular_updates = []
+    ais_updates = []
+    newcomer_updates = []
     unmatched_participants = []
     found_by_name = []
     updates_to_append = []
@@ -246,7 +249,7 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
             if matched_id not in existing_col_values:
                 new_students_count += 1
                 existing_col_values.append(matched_id)
-                updates_to_append.append([matched_id])
+                regular_updates.append([matched_id])
             continue
 
         # 2. AIS Check
@@ -258,7 +261,7 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
             if formatted not in existing_col_values:
                 new_students_count += 1
                 existing_col_values.append(formatted)
-                updates_to_append.append([formatted])
+                ais_updates.append([formatted])
             continue
 
         # 3. Newcomer Check
@@ -267,7 +270,7 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
             if part not in existing_col_values:
                 new_students_count += 1
                 existing_col_values.append(part)
-                updates_to_append.append([part])
+                newcomer_updates.append([part])
             continue
 
         # 4. Tokenized Name Fallback Matching
@@ -280,14 +283,14 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
             if words:
                 w1 = words[0].upper()
                         # Single-name fallback (e.g., participant only typed "Karen")
-        if len(words) == 1:
-            single_matches = [
-                s for s in registered_students 
-                if s['name'].strip().upper().split()[0] == w1
-            ]
-            if len(single_matches) == 1:
-                matched_id = single_matches[0]['id']
-                candidate_rom = single_matches[0]['name']
+            if len(words) == 1:
+                single_matches = [
+                    s for s in registered_students 
+                    if s['name'].strip().upper().split()[0] == w1
+                ]
+                if len(single_matches) == 1:
+                    matched_id = single_matches[0]['id']
+                    candidate_rom = single_matches[0]['name']
 
                 candidate_rows = [s for s in registered_students if w1 in s["name"].upper()]
 
@@ -311,20 +314,45 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
                     if matched_id not in existing_col_values:
                         new_students_count += 1
                         existing_col_values.append(matched_id)
-                        updates_to_append.append([matched_id])
+                        regular_updates.append([matched_id])
                 else:
                     if part not in unmatched_participants:
                         unmatched_participants.append(part)
 
     # STEP G: Write New Rows to Selected Column
-    if updates_to_append:
-        start_range = f"'{target_sheet_name}'!{target_col_letter}{start_write_row}"
-        sheets.values().update(
-            spreadsheetId=SHEET_ID,
-            range=start_range,
-            valueInputOption="USER_ENTERED",
-            body={"values": updates_to_append}
-        ).execute()
+current_row = start_write_row
+
+# 1. Write Regular IDs
+if regular_updates:
+    end_row = current_row + len(regular_updates) - 1
+    sheets.values().update(
+        spreadsheetId=SHEET_ID,
+        range=f"'{target_sheet_name}'!{target_col_letter}{current_row}:{target_col_letter}{end_row}",
+        valueInputOption="USER_ENTERED",
+        body={"values": regular_updates}
+    ).execute()
+    current_row = end_row + 3  # Leave 2 blank rows
+
+# 2. Write AIS Students
+if ais_updates:
+    end_row = current_row + len(ais_updates) - 1
+    sheets.values().update(
+        spreadsheetId=SHEET_ID,
+        range=f"'{target_sheet_name}'!{target_col_letter}{current_row}:{target_col_letter}{end_row}",
+        valueInputOption="USER_ENTERED",
+        body={"values": ais_updates}
+    ).execute()
+    current_row = end_row + 3  # Leave 2 blank rows
+
+# 3. Write Newcomers
+if newcomer_updates:
+    end_row = current_row + len(newcomer_updates) - 1
+    sheets.values().update(
+        spreadsheetId=SHEET_ID,
+        range=f"'{target_sheet_name}'!{target_col_letter}{current_row}:{target_col_letter}{end_row}",
+        valueInputOption="USER_ENTERED",
+        body={"values": newcomer_updates}
+    ).execute()
 
     return {
         "target_column": target_col_letter,
