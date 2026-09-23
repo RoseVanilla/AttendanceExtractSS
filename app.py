@@ -192,16 +192,16 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
     # STEP E: Host Extraction & Row 4 Header Update
     matched_hosts = []
     for line in cleaned_lines:
-    for h in HOSTS:
-        if h.upper() in line.upper():
-            ap = h
-            if "BOULES" not in h.upper():
-                if h == "Batool Khaled":
-                    ap = "Batool "
-                elif " " in ap:
-                    ap = ap.split(" ")[0]
-                if ap not in matched_hosts:
-                    matched_hosts.append(ap)
+        for h in HOSTS:
+            if h.upper() in line.upper():
+                ap = h
+                if "BOULES" not in h.upper():
+                    if h == "Batool Khaled":
+                        ap = "Batool "
+                    elif " " in ap:
+                        ap = ap.split(" ")[0]
+                    if ap not in matched_hosts:
+                        matched_hosts.append(ap)
 
 
     if matched_hosts:
