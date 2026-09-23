@@ -25,8 +25,8 @@ HOSTS = [
 ]
 
 AIS_VARIANTS = [
-    "AIS", "AIS)", "WITH MR BOULES", "IN CLASS)", 
-    "WITH MR BOULES)", "IN CLASS", "AIS STUDENT)", "AIS STUDENT"
+    "AIS", "AIS)", "WITH MR BOULES", "WITH MR BOULES IN CLASS)", 
+    "WITH MR BOULES)", "WITH MR BOULES IN CLASS", "AIS STUDENT)", "AIS STUDENT"
 ]
 
 # ==========================================
@@ -85,7 +85,8 @@ def clean_ocr_lines(raw_lines):
 
 def get_sheets_service():
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-    creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=scopes)
+    secret_data = st.secrets["gcp_service_account"]
+    creds = Credentials.from_service_account_info(dict(secret_data), scopes=scopes)
     return build("sheets", "v4", credentials=creds)
 
 def find_first_empty_column(sheets, spreadsheet_id, sheet_name, start_col=2, check_row=7):
