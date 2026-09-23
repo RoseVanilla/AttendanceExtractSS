@@ -9,11 +9,6 @@ from googleapiclient.discovery import build
 # ==========================================
 # CONFIGURATION & CONSTANTS
 # ==========================================
-def get_sheets_service():
-    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-    secret_data = st.secrets["gcp_service_account"]
-    creds = Credentials.from_service_account_info(dict(secret_data), scopes=scopes)
-    return build("sheets", "v4", credentials=creds)
 
 SHEET_ID = "1taKxfTBnASlDI3dYJEYzFPppkjUr3-zxBgEnlpaigeU"           # Tab 2 / Index 1 attendance sheet
 STUDENT_LIST_SHEET_ID = "17ulfV3Ecp-UlHXLOZT4bfKovy7B5FCPZ3efUkdZnM-w"  # Roster Sheet (Col A=ID, Col B=Name)
@@ -263,8 +258,8 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
                 ais_updates.append([formatted])
             continue
 
-        # 3. Newcomer Check
-        if part.upper().endswith("NEWCOMER" or "NEW COMER"):
+                # 3. Newcomer Check
+        if part.upper().endswith(("NEWCOMER", "NEW COMER")):
             newcomers_count += 1
             if part not in existing_col_values:
                 new_students_count += 1
@@ -281,29 +276,32 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
 
             if words:
                 w1 = words[0].upper()
-                        # Single-name fallback (e.g., participant only typed "Karen")
-            if len(words) == 1:
-                single_matches = [
-                    s for s in registered_students 
-                    if s['name'].strip().upper().split()[0] == w1
-                ]
-                if len(single_matches) == 1:
-                    matched_id = single_matches[0]['id']
-                    candidate_rom = single_matches[0]['name']
+                matched_id = None
 
-                candidate_rows = [s for s in registered_students if w1 in s["name"].upper()]
+                # Single-name fallback (e.g., participant only typed "Karen")
+                if len(words) == 1:
+                    single_matches = [
+                        s for s in registered_students 
+                        if s['name'].strip().upper().split()[0] == w1
+                    ]
+                    if len(single_matches) == 1:
+                        matched_id = single_matches[0]['id']
 
-                if len(candidate_rows) == 1:
-                    matched_id = candidate_rows[0]["id"]
-                elif len(candidate_rows) > 1 and len(words) > 1:
-                    for k in range(1, len(words)):
-                        wk = words[k].upper()
-                        refined = [s for s in candidate_rows if wk in s["name"].upper()]
-                        if len(refined) == 1:
-                            matched_id = refined[0]["id"]
-                            break
-                        elif len(refined) > 1:
-                            candidate_rows = refined
+                # General name / multi-word fallback matching
+                if not matched_id:
+                    candidate_rows = [s for s in registered_students if w1 in s["name"].upper()]
+
+                    if len(candidate_rows) == 1:
+                        matched_id = candidate_rows[0]["id"]
+                    elif len(candidate_rows) > 1 and len(words) > 1:
+                        for k in range(1, len(words)):
+                            wk = words[k].upper()
+                            refined = [s for s in candidate_rows if wk in s["name"].upper()]
+                            if len(refined) == 1:
+                                matched_id = refined[0]["id"]
+                                break
+                            elif len(refined) > 1:
+                                candidate_rows = refined
 
                 if matched_id:
                     log_entry = f"{part} ➔ ID: {matched_id}"
@@ -356,13 +354,16 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
     return {
         "target_column": target_col_letter,
         "start_row": start_write_row,
+        "total_detected": len(cleaned_lines),
         "new_students_count": new_students_count,
         "ais_count": ais_count,
         "newcomers_count": newcomers_count,
+        "matched_hosts": matched_hosts,
         "found_by_name": found_by_name,
         "unmatched_count": len(unmatched_participants),
         "unmatched_list": unmatched_participants
     }
+
 
 
 # ==========================================
@@ -380,25 +381,27 @@ uploaded_images = st.file_uploader(
 )
 
 if st.button("Process Attendance"):
-    if not col_input or not re.match(r"^[A-Z]{1,3}$", col_input):
-        st.error("Please enter a valid column letter (e.g., B, C, AA).")
-    elif not uploaded_images:
-        st.warning("Please upload at least one screenshot.")
-    else:
-        with st.spinner(f"Processing OCR & logging to Column {col_input}..."):
-            res = process_zoom_ocr_attendance(uploaded_images, col_input)
+    num_screenshots = len(uploaded_images)
+    with st.spinner(f"Processing {num_screenshots} screenshot(s) with OCR & logging to Column {col_input}..."):
+        res = process_zoom_ocr_attendance(uploaded_images, col_input)
             
-            st.success(f"Attendance Logged in Column {res['target_column']}!")
-            st.write(f"• **New Students Marked:** {res['new_students_count']}")
-            st.write(f"• **AIS Students:** {res['ais_count']}")
-            st.write(f"• **Newcomers:** {res['newcomers_count']}")
+        st.success(f"Attendance Logged in Column {res['target_column']}!")
+        st.write(f"• **Total Participants Detected:** {res['total_detected']}")
+        st.write(f"• **New Students Marked:** {res['new_students_count']}")
+        st.write(f"• **AIS Students:** {res['ais_count']}")
+        st.write(f"• **Newcomers:** {res['newcomers_count']}")
 
-            if res["found_by_name"]:
-                with st.expander(f"🔍 {len(res['found_by_name'])} Matched by Name"):
-                    for item in res["found_by_name"]:
-                        st.write(f"- {item}")
+        if res["matched_hosts"]:
+            st.write(f"• **Assistants/Co-hosts Detected:** {', '.join(res['matched_hosts'])}")
+        else:
+            st.write("• **Assistants/Co-hosts Detected:** None")
 
-            if res["unmatched_count"] > 0:
-                with st.expander(f"⚠️ {res['unmatched_count']} Unmatched Names"):
-                    for name in res["unmatched_list"]:
-                        st.write(f"- {name}")
+        if res["found_by_name"]:
+            with st.expander(f"🔍 {len(res['found_by_name'])} Matched by Name"):
+                for item in res["found_by_name"]:
+                    st.write(f"- {item}")
+
+        if res["unmatched_count"] > 0:
+            with st.expander(f"⚠️ {res['unmatched_count']} Unmatched Names"):
+                for name in res["unmatched_list"]:
+                    st.write(f"- {name}")
