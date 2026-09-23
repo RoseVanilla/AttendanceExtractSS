@@ -1,3 +1,4 @@
+import json
 import base64
 import re
 import requests
@@ -86,8 +87,20 @@ def clean_ocr_lines(raw_lines):
 def get_sheets_service():
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
     secret_data = st.secrets["gcp_service_account"]
-    creds = Credentials.from_service_account_info(dict(secret_data), scopes=scopes)
+
+    # Handle string (raw JSON) vs TOML dictionary formats
+    if isinstance(secret_data, str):
+        info = json.loads(secret_data)
+    else:
+        info = dict(secret_data)
+
+    # Convert escaped newline characters in private_key if needed
+    if "private_key" in info and "\\n" in info["private_key"]:
+        info["private_key"] = info["private_key"].replace("\\n", "\n")
+
+    creds = Credentials.from_service_account_info(info, scopes=scopes)
     return build("sheets", "v4", credentials=creds)
+
 
 def find_first_empty_column(sheets, spreadsheet_id, sheet_name, start_col=2, check_row=7):
     """
