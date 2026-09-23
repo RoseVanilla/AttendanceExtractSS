@@ -321,37 +321,37 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
     # STEP G: Write New Rows to Selected Column
 current_row = start_write_row
 
-# 1. Write Regular IDs
-if regular_updates:
-    end_row = current_row + len(regular_updates) - 1
-    sheets.values().update(
-        spreadsheetId=SHEET_ID,
-        range=f"'{target_sheet_name}'!{target_col_letter}{current_row}:{target_col_letter}{end_row}",
-        valueInputOption="USER_ENTERED",
-        body={"values": regular_updates}
-    ).execute()
-    current_row = end_row + 3  # Leave 2 blank rows
+    # 1. Write Regular IDs
+    if regular_updates:
+        end_row = current_row + len(regular_updates) - 1
+        sheets.values().update(
+            spreadsheetId=SHEET_ID,
+            range=f"'{target_sheet_name}'!{target_col_letter}{current_row}:{target_col_letter}{end_row}",
+            valueInputOption="USER_ENTERED",
+            body={"values": regular_updates}
+        ).execute()
+        current_row = end_row + 3  # Leave 2 blank rows
 
-# 2. Write AIS Students
-if ais_updates:
-    end_row = current_row + len(ais_updates) - 1
-    sheets.values().update(
-        spreadsheetId=SHEET_ID,
-        range=f"'{target_sheet_name}'!{target_col_letter}{current_row}:{target_col_letter}{end_row}",
-        valueInputOption="USER_ENTERED",
-        body={"values": ais_updates}
-    ).execute()
-    current_row = end_row + 3  # Leave 2 blank rows
+    # 2. Write AIS Students
+    if ais_updates:
+        end_row = current_row + len(ais_updates) - 1
+        sheets.values().update(
+            spreadsheetId=SHEET_ID,
+            range=f"'{target_sheet_name}'!{target_col_letter}{current_row}:{target_col_letter}{end_row}",
+            valueInputOption="USER_ENTERED",
+            body={"values": ais_updates}
+        ).execute()
+        current_row = end_row + 3  # Leave 2 blank rows
 
-# 3. Write Newcomers
-if newcomer_updates:
-    end_row = current_row + len(newcomer_updates) - 1
-    sheets.values().update(
-        spreadsheetId=SHEET_ID,
-        range=f"'{target_sheet_name}'!{target_col_letter}{current_row}:{target_col_letter}{end_row}",
-        valueInputOption="USER_ENTERED",
-        body={"values": newcomer_updates}
-    ).execute()
+    # 3. Write Newcomers
+    if newcomer_updates:
+        end_row = current_row + len(newcomer_updates) - 1
+        sheets.values().update(
+            spreadsheetId=SHEET_ID,
+            range=f"'{target_sheet_name}'!{target_col_letter}{current_row}:{target_col_letter}{end_row}",
+            valueInputOption="USER_ENTERED",
+            body={"values": newcomer_updates}
+        ).execute()
 
     return {
         "target_column": target_col_letter,
