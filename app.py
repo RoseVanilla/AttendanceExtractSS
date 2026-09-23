@@ -8,9 +8,14 @@ from googleapiclient.discovery import build
 # ==========================================
 # CONFIGURATION & CONSTANTS
 # ==========================================
-SERVICE_ACCOUNT_FILE = "service-account.json"
-SHEET_ID = "YOUR_ACTUAL_ATTENDANCE_SHEET_ID"           # Tab 2 / Index 1 attendance sheet
-STUDENT_LIST_SHEET_ID = "YOUR_ACTUAL_STUDENT_ROSTER_SHEET_ID"  # Roster Sheet (Col A=ID, Col B=Name)
+def get_sheets_service():
+    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+    secret_data = st.secrets["gcp_service_account"]
+    creds = Credentials.from_service_account_info(dict(secret_data), scopes=scopes)
+    return build("sheets", "v4", credentials=creds)
+
+SHEET_ID = "1taKxfTBnASlDI3dYJEYzFPppkjUr3-zxBgEnlpaigeU"           # Tab 2 / Index 1 attendance sheet
+STUDENT_LIST_SHEET_ID = "17ulfV3Ecp-UlHXLOZT4bfKovy7B5FCPZ3efUkdZnM-w"  # Roster Sheet (Col A=ID, Col B=Name)
 OCR_SPACE_API_KEY = "K83980812088957"
 
 HOSTS = [
