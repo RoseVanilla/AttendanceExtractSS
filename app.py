@@ -191,17 +191,17 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
 
     # STEP E: Host Extraction & Row 4 Header Update
     matched_hosts = []
-        for line in cleaned_lines:
-        for h in HOSTS:
-            if h.upper() in line.upper():
-                ap = h
-                if "BOULES" not in h.upper():
-                    if h == "Batool Khaled":
-                        ap = "Batool "
-                    elif " " in ap:
-                        ap = ap.split(" ")[0]
-                    if ap not in matched_hosts:
-                        matched_hosts.append(ap)
+    for line in cleaned_lines:
+    for h in HOSTS:
+        if h.upper() in line.upper():
+            ap = h
+            if "BOULES" not in h.upper():
+                if h == "Batool Khaled":
+                    ap = "Batool "
+                elif " " in ap:
+                    ap = ap.split(" ")[0]
+                if ap not in matched_hosts:
+                    matched_hosts.append(ap)
 
 
     if matched_hosts:
@@ -387,13 +387,13 @@ if st.button("Process Attendance"):
         with st.spinner(f"Processing OCR & logging to Column {col_input}..."):
             res = process_zoom_ocr_attendance(uploaded_images, col_input)
             
-            st.success(f"Attendance Logged in Column {res['target_column']} (Starting at Row {res['start_row']})!")
+            st.success(f"Attendance Logged in Column {res['target_column']}!")
             st.write(f"• **New Students Marked:** {res['new_students_count']}")
             st.write(f"• **AIS Students:** {res['ais_count']}")
             st.write(f"• **Newcomers:** {res['newcomers_count']}")
 
             if res["found_by_name"]:
-                with st.expander(f"🔍 {len(res['found_by_name'])} Matched by Name (Fallback)"):
+                with st.expander(f"🔍 {len(res['found_by_name'])} Matched by Name"):
                     for item in res["found_by_name"]:
                         st.write(f"- {item}")
 
