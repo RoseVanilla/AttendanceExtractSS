@@ -130,7 +130,7 @@ def get_column_write_info(sheets, spreadsheet_id, sheet_name, col_letter):
 # ==========================================
 # MAIN OCR PROCESSING ENGINE
 # ==========================================
-def process_zoom_ocr_attendance(uploaded_files):
+def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
     service = get_sheets_service()
     sheets = service.spreadsheets()
 
