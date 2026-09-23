@@ -319,7 +319,7 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
                         unmatched_participants.append(part)
 
     # STEP G: Write New Rows to Selected Column
-current_row = start_write_row
+    current_row = start_write_row
 
     # 1. Write Regular IDs
     if regular_updates:
@@ -359,10 +359,11 @@ current_row = start_write_row
         "new_students_count": new_students_count,
         "ais_count": ais_count,
         "newcomers_count": newcomers_count,
-        "found_by_name": found_by_name,          
+        "found_by_name": found_by_name,
         "unmatched_count": len(unmatched_participants),
         "unmatched_list": unmatched_participants
     }
+
 
 # ==========================================
 # STREAMLIT USER INTERFACE
