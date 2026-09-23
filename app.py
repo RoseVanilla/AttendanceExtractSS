@@ -255,7 +255,7 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
             continue
 
         # 3. Newcomer Check
-        if part.upper().endswith("NEWCOMER"):
+        if part.upper().endswith("NEWCOMER" or "NEW COMER"):
             newcomers_count += 1
             if part not in existing_col_values:
                 new_students_count += 1
