@@ -65,7 +65,7 @@ def clean_ocr_lines(raw_lines):
         # 3. Strip prepended avatar initials attached to names (e.g., "JD John Doe")
         words = line.split()
         if len(words) > 1 and re.match(r"^[A-Za-z]{1,2}$", words[0]):
-                        candidate_initials = words[0].upper()
+            candidate_initials = words[0].upper()
             first_initial = words[1][0].upper() if len(words[1]) > 0 else ""
             second_initial = words[2][0].upper() if len(words) > 2 and len(words[2]) > 0 else ""
 
@@ -84,7 +84,6 @@ def clean_ocr_lines(raw_lines):
             if is_single or is_double_full or is_double_single_name:
                 words = words[1:]
                 line = " ".join(words)
-
 
         cleaned_lines.append(line)
 
