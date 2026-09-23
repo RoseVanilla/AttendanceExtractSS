@@ -65,20 +65,26 @@ def clean_ocr_lines(raw_lines):
         # 3. Strip prepended avatar initials attached to names (e.g., "JD John Doe")
         words = line.split()
         if len(words) > 1 and re.match(r"^[A-Za-z]{1,2}$", words[0]):
-            candidate_initials = words[0].upper()
-            first_initial = words[1][0].upper() if len(words) > 1 else ""
-            second_initial = words[2][0].upper() if len(words) > 2 else ""
+                        candidate_initials = words[0].upper()
+            first_initial = words[1][0].upper() if len(words[1]) > 0 else ""
+            second_initial = words[2][0].upper() if len(words) > 2 and len(words[2]) > 0 else ""
 
             is_single = len(candidate_initials) == 1 and candidate_initials == first_initial
-            is_double = (
-                len(candidate_initials) == 2 
-                and second_initial 
+            is_double_full = (
+                len(candidate_initials) == 2
+                and second_initial
                 and candidate_initials == (first_initial + second_initial)
             )
+            is_double_single_name = (
+                len(candidate_initials) == 2
+                and len(words) == 2
+                and candidate_initials.startswith(first_initial)
+            )
 
-            if is_single or is_double:
-                words.pop(0)
+            if is_single or is_double_full or is_double_single_name:
+                words = words[1:]
                 line = " ".join(words)
+
 
         cleaned_lines.append(line)
 
@@ -186,17 +192,18 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
 
     # STEP E: Host Extraction & Row 4 Header Update
     matched_hosts = []
-    for line in cleaned_lines:
+        for line in cleaned_lines:
         for h in HOSTS:
             if h.upper() in line.upper():
                 ap = h
-                if h != "BOULES Ramzy":
+                if "BOULES" not in h.upper():
                     if h == "Batool Khaled":
-                        ap = "Batoul "
+                        ap = "Batool "
                     elif " " in ap:
                         ap = ap.split(" ")[0]
-                if ap not in matched_hosts:
-                    matched_hosts.append(ap)
+                    if ap not in matched_hosts:
+                        matched_hosts.append(ap)
+
 
     if matched_hosts:
         host_header_text = " & ".join(matched_hosts)
@@ -272,6 +279,16 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
 
             if words:
                 w1 = words[0].upper()
+                        # Single-name fallback (e.g., participant only typed "Karen")
+        if len(words) == 1:
+            single_matches = [
+                s for s in registered_students 
+                if s['name'].strip().upper().split()[0] == w1
+            ]
+            if len(single_matches) == 1:
+                matched_id = single_matches[0]['id']
+                candidate_rom = single_matches[0]['name']
+
                 candidate_rows = [s for s in registered_students if w1 in s["name"].upper()]
 
                 if len(candidate_rows) == 1:
@@ -287,7 +304,6 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
                             candidate_rows = refined
 
                 if matched_id:
-                    # NEW: Add to fallback name tracking list
                     log_entry = f"{part} ➔ ID: {matched_id}"
                     if log_entry not in found_by_name:
                         found_by_name.append(log_entry)
