@@ -192,7 +192,7 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
             body={"values": [[host_header_text]]}
         ).execute()
 
-# STEP F: Participant Matching Logic
+    # STEP F: Participant Matching Logic
     new_students_count = 0
     ais_count = 0
     newcomers_count = 0
@@ -201,25 +201,31 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
     newcomer_updates = []
     unmatched_participants = []
     found_by_name = []
-    updates_to_append = []
 
-    for part in cleaned_lines:
-        is_host = any(h.upper() in part.upper() for h in HOSTS)
+    for raw_part in raw_lines:
+        raw_trimmed = raw_part.strip()
+        if not raw_trimmed or re.match(r"^[A-Za-z]{1,2}$", raw_trimmed):
+            continue
 
-        # 1. Variable-Length ID Check (with O <-> 0 fallback swap)
+        is_host = any(h.upper() in raw_trimmed.upper() for h in HOSTS)
+
+        # ---------------------------------------------------------
+        # 1. VARIABLE-LENGTH ID CHECK (ON RAW UNTOUCHED LINE)
+        # ---------------------------------------------------------
         matched_id = None
-        part_upper = part.upper()
+        raw_compact = raw_trimmed.upper().replace(" ", "")
+
         for v_id in valid_ids:
-            v_id_upper = v_id.upper()
+            v_id_compact = v_id.upper().replace(" ", "")
             
-            if v_id_upper in part_upper:
+            # Direct space-insensitive match (e.g. "TL 258" -> "TL258")
+            if v_id_compact in raw_compact:
                 matched_id = v_id
                 break
             
-            if 'O' in v_id_upper or '0' in v_id_upper or 'O' in part_upper or '0' in part_upper:
-                v_id_normalized = v_id_upper.replace('O', '0')
-                part_normalized = part_upper.replace('O', '0')
-                if v_id_normalized in part_normalized:
+            # O <-> 0 swap fallback
+            if 'O' in v_id_compact or '0' in v_id_compact or 'O' in raw_compact or '0' in raw_compact:
+                if v_id_compact.replace('O', '0') in raw_compact.replace('O', '0'):
                     matched_id = v_id
                     break
 
@@ -228,9 +234,20 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
                 new_students_count += 1
                 existing_col_values.append(matched_id)
                 regular_updates.append([matched_id])
-            continue
+            continue  # ID found! Skip cleaning and Steps 2-4 for this line.
 
-        # 2. AIS Check
+        # ---------------------------------------------------------
+        # CLEAN THE LINE FOR STEPS 2, 3, & 4
+        # ---------------------------------------------------------
+        # Strip Zoom tags & 1-2 character avatar prefixes
+        part = re.sub(r"^(H|CH|\(Host\)|\(Co-host\))\s+", "", raw_trimmed, flags=re.IGNORECASE)
+        words = part.split()
+        if len(words) > 1 and len(words[0]) <= 2:
+            part = " ".join(words[1:])
+
+        # ---------------------------------------------------------
+        # 2. AIS CHECK
+        # ---------------------------------------------------------
         matched_ais = next((v for v in AIS_VARIANTS if part.upper().startswith(v) or part.upper().endswith(v)), None)
         if matched_ais:
             ais_count += 1
@@ -242,7 +259,9 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
                 ais_updates.append([formatted])
             continue
 
-                # 3. Newcomer Check
+        # ---------------------------------------------------------
+        # 3. NEWCOMER CHECK
+        # ---------------------------------------------------------
         if part.upper().endswith(("NEWCOMER", "NEW COMER")):
             newcomers_count += 1
             if part not in existing_col_values:
@@ -251,11 +270,13 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
                 newcomer_updates.append([part])
             continue
 
-                # 4. Tokenized Name Fallback Matching
+        # ---------------------------------------------------------
+        # 4. TOKENIZED STRICT FIRST-NAME FALLBACK MATCHING
+        # ---------------------------------------------------------
         if not is_host:
             words = [w for w in part.split() if len(w) > 0]
             
-            # Strip remaining numeric prefix if present
+            # Strip numeric prefix if present
             if words and any(char.isdigit() for char in words[0]):
                 words.pop(0)
 
@@ -263,7 +284,7 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
                 w1 = words[0].upper()
                 matched_id = None
 
-                # STRICT FIRST-NAME MATCH: First word of participant MUST match First word in Google Sheet roster
+                # STRICT FIRST-NAME MATCH
                 candidate_rows = [
                     s for s in registered_students 
                     if s["name"].strip() and s["name"].strip().upper().split()[0] == w1
@@ -271,19 +292,16 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
 
                 if len(candidate_rows) == 1:
                     matched_id = candidate_rows[0]["id"]
-                elif len(candidate_rows) > 1:
-                    # If multiple students share the exact same first name (e.g. "Ali"), refine using subsequent words
-                    if len(words) > 1:
-                        for k in range(1, len(words)):
-                            wk = words[k].upper()
-                            refined = [s for s in candidate_rows if wk in s["name"].upper()]
-                            if len(refined) == 1:
-                                matched_id = refined[0]["id"]
-                                break
-                            elif len(refined) > 1:
-                                candidate_rows = refined
+                elif len(candidate_rows) > 1 and len(words) > 1:
+                    for k in range(1, len(words)):
+                        wk = words[k].upper()
+                        refined = [s for s in candidate_rows if wk in s["name"].upper()]
+                        if len(refined) == 1:
+                            matched_id = refined[0]["id"]
+                            break
+                        elif len(refined) > 1:
+                            candidate_rows = refined
 
-                    # Fallback tie-breaker if candidates remain
                     if not matched_id and candidate_rows:
                         matched_id = candidate_rows[0]["id"]
 
