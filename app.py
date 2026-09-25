@@ -41,7 +41,7 @@ def clean_ocr_lines(raw_lines):
     """
     1. Removes standalone avatar initials (1-2 letters).
     2. Strips Zoom host/co-host prefixes.
-    3. Strips prepended avatar initials attached to names (e.g., 'JD John Doe').
+    3. Strips any 1-2 character word at the start of a multi-word line (avatar initials, numbers, etc.).
     """
     cleaned_lines = []
 
@@ -57,32 +57,16 @@ def clean_ocr_lines(raw_lines):
         # 2. Strip Zoom host/co-host tags if prepended
         line = re.sub(r"^(H|CH|\(Host\)|\(Co-host\))\s+", "", line, flags=re.IGNORECASE)
 
-        # 3. Strip prepended avatar initials attached to names (e.g., "JD John Doe")
+        # 3. Strip any 1-2 character prefix followed by a space (e.g. "KQ", "JD", "01", "1.")
         words = line.split()
-        if len(words) > 1 and re.match(r"^[A-Za-z]{1,2}$", words[0]):
-            candidate_initials = words[0].upper()
-            first_initial = words[1][0].upper() if len(words[1]) > 0 else ""
-            second_initial = words[2][0].upper() if len(words) > 2 and len(words[2]) > 0 else ""
-
-            is_single = len(candidate_initials) == 1 and candidate_initials == first_initial
-            is_double_full = (
-                len(candidate_initials) == 2
-                and second_initial
-                and candidate_initials == (first_initial + second_initial)
-            )
-            is_double_single_name = (
-                len(candidate_initials) == 2
-                and len(words) == 2
-                and candidate_initials.startswith(first_initial)
-            )
-
-            if is_single or is_double_full or is_double_single_name:
-                words = words[1:]
-                line = " ".join(words)
+        if len(words) > 1 and len(words[0]) <= 2:
+            words = words[1:]
+            line = " ".join(words)
 
         cleaned_lines.append(line)
 
     return cleaned_lines
+
 
 def get_sheets_service():
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -267,10 +251,11 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
                 newcomer_updates.append([part])
             continue
 
-        # 4. Tokenized Name Fallback Matching
+                # 4. Tokenized Name Fallback Matching
         if not is_host:
             words = [w for w in part.split() if len(w) > 0]
             
+            # Strip remaining numeric prefix if present
             if words and any(char.isdigit() for char in words[0]):
                 words.pop(0)
 
@@ -278,22 +263,17 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
                 w1 = words[0].upper()
                 matched_id = None
 
-                # Single-name fallback (e.g., participant only typed "Karen")
-                if len(words) == 1:
-                    single_matches = [
-                        s for s in registered_students 
-                        if s['name'].strip().upper().split()[0] == w1
-                    ]
-                    if len(single_matches) == 1:
-                        matched_id = single_matches[0]['id']
+                # STRICT FIRST-NAME MATCH: First word of participant MUST match First word in Google Sheet roster
+                candidate_rows = [
+                    s for s in registered_students 
+                    if s["name"].strip() and s["name"].strip().upper().split()[0] == w1
+                ]
 
-                # General name / multi-word fallback matching
-                if not matched_id:
-                    candidate_rows = [s for s in registered_students if w1 in s["name"].upper()]
-
-                    if len(candidate_rows) == 1:
-                        matched_id = candidate_rows[0]["id"]
-                    elif len(candidate_rows) > 1 and len(words) > 1:
+                if len(candidate_rows) == 1:
+                    matched_id = candidate_rows[0]["id"]
+                elif len(candidate_rows) > 1:
+                    # If multiple students share the exact same first name (e.g. "Ali"), refine using subsequent words
+                    if len(words) > 1:
                         for k in range(1, len(words)):
                             wk = words[k].upper()
                             refined = [s for s in candidate_rows if wk in s["name"].upper()]
@@ -302,6 +282,10 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
                                 break
                             elif len(refined) > 1:
                                 candidate_rows = refined
+
+                    # Fallback tie-breaker if candidates remain
+                    if not matched_id and candidate_rows:
+                        matched_id = candidate_rows[0]["id"]
 
                 if matched_id:
                     log_entry = f"{part} ➔ ID: {matched_id}"
@@ -315,6 +299,7 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
                 else:
                     if part not in unmatched_participants:
                         unmatched_participants.append(part)
+
 
     # STEP G: Write New Rows to Selected Column
     current_row = start_write_row
