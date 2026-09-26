@@ -295,6 +295,110 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
                 elif len(candidate_rows) > 1 and len(words) > 1:
                     for k in range(1, len(words)):
                         wk = words[k].upper()
+    # STEP F: Participant Matching Logic
+    new_students_count = 0
+    ais_count = 0
+    newcomers_count = 0
+    regular_updates = []
+    ais_updates = []
+    newcomer_updates = []
+    unmatched_participants = []
+    found_by_name = []
+
+    for raw_part in raw_lines:
+        raw_trimmed = raw_part.strip()
+        if not raw_trimmed or re.match(r"^[A-Za-z]{1,2}$", raw_trimmed):
+            continue
+
+        is_host = any(h.upper() in raw_trimmed.upper() for h in HOSTS)
+
+        # ---------------------------------------------------------
+        # 1. VARIABLE-LENGTH ID CHECK (ON RAW UNTOUCHED LINE)
+        # ---------------------------------------------------------
+        matched_id = None
+        raw_compact = raw_trimmed.upper().replace(" ", "")
+
+        for v_id in valid_ids:
+            v_id_compact = v_id.upper().replace(" ", "")
+            
+            # Direct space-insensitive match (e.g. "TL 258" -> "TL258")
+            if v_id_compact in raw_compact:
+                matched_id = v_id
+                break
+            
+            # O <-> 0 swap fallback
+            if 'O' in v_id_compact or '0' in v_id_compact or 'O' in raw_compact or '0' in raw_compact:
+                if v_id_compact.replace('O', '0') in raw_compact.replace('O', '0'):
+                    matched_id = v_id
+                    break
+
+        if matched_id:
+            if matched_id not in existing_col_values:
+                new_students_count += 1
+                existing_col_values.append(matched_id)
+                regular_updates.append([matched_id])
+            continue  # ID found! Skip cleaning and Steps 2-4 for this line.
+
+        # ---------------------------------------------------------
+        # CLEAN THE LINE FOR STEPS 2, 3, & 4
+        # ---------------------------------------------------------
+        # Strip Zoom tags & 1-2 character avatar prefixes
+        part = re.sub(r"^(H|CH|\(Host\)|\(Co-host\))\s+", "", raw_trimmed, flags=re.IGNORECASE)
+        words = part.split()
+        if len(words) > 1 and len(words[0]) <= 2:
+            part = " ".join(words[1:])
+
+        # ---------------------------------------------------------
+        # 2. AIS CHECK
+        # ---------------------------------------------------------
+        matched_ais = next((v for v in AIS_VARIANTS if part.upper().startswith(v) or part.upper().endswith(v)), None)
+        if matched_ais:
+            ais_count += 1
+            clean_name = re.sub(re.escape(matched_ais), "", part, flags=re.IGNORECASE).strip("() ")
+            formatted = f"AIS {clean_name}"
+            if formatted not in existing_col_values:
+                new_students_count += 1
+                existing_col_values.append(formatted)
+                ais_updates.append([formatted])
+            continue
+
+        # ---------------------------------------------------------
+        # 3. NEWCOMER CHECK
+        # ---------------------------------------------------------
+        if part.upper().endswith(("NEWCOMER", "NEW COMER")):
+            newcomers_count += 1
+            if part not in existing_col_values:
+                new_students_count += 1
+                existing_col_values.append(part)
+                newcomer_updates.append([part])
+            continue
+
+        # ---------------------------------------------------------
+        # 4. TOKENIZED STRICT FIRST-NAME FALLBACK MATCHING
+        # ---------------------------------------------------------
+        matched_id = None
+
+        if not is_host:
+            words = [w for w in part.split() if len(w) > 0]
+            
+            # Strip numeric prefix if present
+            if words and any(char.isdigit() for char in words[0]):
+                words.pop(0)
+
+            if words:
+                w1 = words[0].upper()
+
+                # STRICT FIRST-NAME MATCH
+                candidate_rows = [
+                    s for s in registered_students 
+                    if s["name"].strip() and s["name"].strip().upper().split()[0] == w1
+                ]
+
+                if len(candidate_rows) == 1:
+                    matched_id = candidate_rows[0]["id"]
+                elif len(candidate_rows) > 1 and len(words) > 1:
+                    for k in range(1, len(words)):
+                        wk = words[k].upper()
                         refined = [s for s in candidate_rows if wk in s["name"].upper()]
                         if len(refined) == 1:
                             matched_id = refined[0]["id"]
@@ -302,21 +406,22 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
                         elif len(refined) > 1:
                             candidate_rows = refined
 
-                    if not matched_id and candidate_rows:
-                        matched_id = candidate_rows[0]["id"]
+            # ---------------------------------------------------------
+            # RECORD RESULT OR MARK UNMATCHED
+            # ---------------------------------------------------------
+            if matched_id:
+                log_entry = f"{part} ➔ ID: {matched_id}"
+                if log_entry not in found_by_name:
+                    found_by_name.append(log_entry)
 
-                if matched_id:
-                    log_entry = f"{part} ➔ ID: {matched_id}"
-                    if log_entry not in found_by_name:
-                        found_by_name.append(log_entry)
-
-                    if matched_id not in existing_col_values:
-                        new_students_count += 1
-                        existing_col_values.append(matched_id)
-                        regular_updates.append([matched_id])
-                else:
-                    if part not in unmatched_participants:
-                        unmatched_participants.append(part)
+                if matched_id not in existing_col_values:
+                    new_students_count += 1
+                    existing_col_values.append(matched_id)
+                    regular_updates.append([matched_id])
+            else:
+                # Triggers if 0 candidates match OR if multi-matches couldn't be narrowed to 1 row
+                if part and part not in unmatched_participants:
+                    unmatched_participants.append(part)
 
 
     # STEP G: Write New Rows to Selected Column
