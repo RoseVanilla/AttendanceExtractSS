@@ -192,7 +192,6 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
             body={"values": [[host_header_text]]}
         ).execute()
 
-    
     # STEP F: Participant Matching Logic
     new_students_count = 0
     ais_count = 0
@@ -274,8 +273,6 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
         # ---------------------------------------------------------
         # 4. TOKENIZED STRICT FIRST-NAME FALLBACK MATCHING
         # ---------------------------------------------------------
-        matched_id = None
-
         if not is_host:
             words = [w for w in part.split() if len(w) > 0]
             
@@ -285,6 +282,7 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
 
             if words:
                 w1 = words[0].upper()
+                matched_id = None
 
                 # STRICT FIRST-NAME MATCH
                 candidate_rows = [
@@ -304,22 +302,21 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter):
                         elif len(refined) > 1:
                             candidate_rows = refined
 
-            # ---------------------------------------------------------
-            # RECORD RESULT OR MARK UNMATCHED
-            # ---------------------------------------------------------
-            if matched_id:
-                log_entry = f"{part} ➔ ID: {matched_id}"
-                if log_entry not in found_by_name:
-                    found_by_name.append(log_entry)
+                    if not matched_id and candidate_rows:
+                        matched_id = candidate_rows[0]["id"]
 
-                if matched_id not in existing_col_values:
-                    new_students_count += 1
-                    existing_col_values.append(matched_id)
-                    regular_updates.append([matched_id])
-            else:
-                # Triggers if 0 candidates match OR if multi-matches couldn't be narrowed to 1 row
-                if part and part not in unmatched_participants:
-                    unmatched_participants.append(part)
+                if matched_id:
+                    log_entry = f"{part} ➔ ID: {matched_id}"
+                    if log_entry not in found_by_name:
+                        found_by_name.append(log_entry)
+
+                    if matched_id not in existing_col_values:
+                        new_students_count += 1
+                        existing_col_values.append(matched_id)
+                        regular_updates.append([matched_id])
+                else:
+                    if part not in unmatched_participants:
+                        unmatched_participants.append(part)
 
 
     # STEP G: Write New Rows to Selected Column
