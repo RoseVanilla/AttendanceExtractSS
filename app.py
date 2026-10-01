@@ -479,7 +479,7 @@ if st.button("Process Attendance"):
                 st.write(f"- {item}")
 
     if res["guessed_list"]:
-        with st.expander(f"🟡 {len(res['guessed_list'])} Guessed (first of several) - please check"):
+        with st.expander(f"🟡 {len(res['guessed_list'])} Guessed - please check"):
             for item in res["guessed_list"]:
                 st.write(f"- {item}")
 
