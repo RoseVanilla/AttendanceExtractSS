@@ -23,8 +23,8 @@ OCR_SPACE_API_KEY = "K83980812088957"
 LEVEL_CONFIGS = {
     "O-Level": {
         "roster_sheet_id": O_LEVEL_ROSTER_SHEET_ID,
-        "roster_range": "A1:Z1000",
-        "id_col_idx": 3,    # Column D
+        "roster_range": "A2:B10000",
+        "id_col_idx": 0,    # Column A
         "name_col_idx": 1,  # Column B
         "data_start_row": 1,  # Row 2 (0-indexed = 1)
         "attendance_sheet_id": O_LEVEL_ATTENDANCE_SHEET_ID,
