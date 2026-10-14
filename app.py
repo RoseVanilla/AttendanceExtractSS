@@ -212,7 +212,7 @@ def process_zoom_ocr_attendance(uploaded_files, target_col_letter, selected_leve
         payload = {
             "apikey": OCR_SPACE_API_KEY,
             "language": "eng",
-            "ocrengine": "2",
+            "ocrengine": "3",
             "isTable": "true",
             "base64Image": f"data:image/png;base64,{base64_img}"
         }
